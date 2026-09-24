@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException,status
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime
 from .. import models, schemas, database
 
 router = APIRouter(
@@ -10,7 +11,7 @@ router = APIRouter(
 
 
 @router.post("/", response_model=List[schemas.AttendanceResponse])
-def record_bulk_attendance(attendance_data: List[schemas.AttendanceStatus], db: Session = Depends(database.get_db)):
+def record_bulk_attendance(attendance_data: List[schemas.AttendanceCreate], db: Session = Depends(database.get_db)):
 
     db_logs = []
     for record in attendance_data:
@@ -18,7 +19,7 @@ def record_bulk_attendance(attendance_data: List[schemas.AttendanceStatus], db: 
         existing = db.query(models.AttendanceLog).filter(
             models.AttendanceLog.student_id == record.student_id,
             models.AttendanceLog.subject_id == record.subject_id,
-            models.AttendanceLog.date == database.datetime.utcnow().date()
+            models.AttendanceLog.date == datetime.utcnow().date() 
         ).first()
 
         if existing:
@@ -57,3 +58,8 @@ def correct_attendance(log_id: int, update_data: schemas.AttendanceUpdate, db: S
 def get_student_history(student_id: int, db: Session = Depends(database.get_db)):
     logs = db.query(models.AttendanceLog).filter(models.AttendanceLog.student_id == student_id).all()
     return logs
+
+
+@router.get("/students", response_model=List[schemas.UserResponse])
+def get_all_students(db: Session = Depends(database.get_db)):
+    return db.query(models.User).filter(models.User.role == models.RoleEnum.student).all()
