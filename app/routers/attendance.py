@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 from .. import models, schemas, database
+from sqlalchemy import func
 
 router = APIRouter(
     prefix="/attendance",
@@ -63,3 +64,29 @@ def get_student_history(student_id: int, db: Session = Depends(database.get_db))
 @router.get("/students", response_model=List[schemas.UserResponse])
 def get_all_students(db: Session = Depends(database.get_db)):
     return db.query(models.User).filter(models.User.role == models.RoleEnum.student).all()
+
+
+
+@router.get("/report", response_model=List[dict])
+def get_attendance_report(db: Session = Depends(database.get_db)):
+    students = db.query(models.User).filter(models.User.role == models.RoleEnum.student).all()
+    report = []
+    
+    for student in students:
+        total_classes = db.query(models.AttendanceLog).filter(models.AttendanceLog.student_id == student.id).count()
+        present_classes = db.query(models.AttendanceLog).filter(
+            models.AttendanceLog.student_id == student.id,
+            models.AttendanceLog.status == "present"
+        ).count()
+        
+        percentage = (present_classes / total_classes * 100) if total_classes > 0 else 0
+        
+        report.append({
+            "id": student.id,
+            "name": student.name,
+            "section": student.section,
+            "total_classes": total_classes,
+            "percentage": round(percentage, 2)
+        })
+        
+    return report
